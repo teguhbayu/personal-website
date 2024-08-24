@@ -11,12 +11,11 @@ export default function Hero() {
         Developer
       </h1>
       <Image
-        src={"/bayu.png"}
+        src={"https://res.cloudinary.com/dyk5irgia/image/authenticated/s--qpgwxm9t--/v1724493851/tewmyefo30g4taol0qtp.png"}
         alt="bayu"
         className="absolute z-10 bottom-0 left-1/2 -translate-x-1/2 h-[60%] sm:h-[70%] md:h-[90%] w-auto translate-y-10"
         width={400}
         height={800}
-        unoptimized
       />
       <div className="flex flex-col gap-3 sm:gap-7 text-white z-30 pt-[25%] sm:pt-0">
         <h2 className="font-semibold text-4xl sm:text-6xl">
