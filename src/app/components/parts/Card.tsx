@@ -40,7 +40,6 @@ export default function CertCard(props: cardProps) {
         src={"/certs/" + props.image}
         className="w-full h-full object-cover group-hover:scale-110 duration-300 transition-all -z-40 absolute left-0 top-0"
         alt="waw"
-        unoptimized
         width={300}
         height={175}
       />

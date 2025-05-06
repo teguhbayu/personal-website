@@ -29,8 +29,8 @@ export default function About() {
             successfully launching several websites, and providing freelance web
             development services since February 2024. Strong communication
             skills demonstrated by a TOEIC score of 935/990, and technical
-            expertise recognized with a 1st Place win at LKS Cloud Computing
-            Jawa Timur.
+            expertise recognized with a 1st Place win at National LKS Cloud
+            Computing.
           </p>
         </div>
       </div>

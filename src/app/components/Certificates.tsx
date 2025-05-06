@@ -20,9 +20,21 @@ const certs = {
   ],
   comp: [
     {
+      name: "LKS Cloud Malang",
+      image: "lksk.jpg",
+      href: "https://drive.google.com/file/d/1X6u90-sGYHoBLOEgmC7MJXk2Ub2iPBut/view?usp=sharing",
+      pos: "1st place",
+    },
+    {
       name: "LKS Cloud Jatim",
       image: "lks.jpg",
       href: "https://drive.google.com/file/d/1CNey9DvBIxqnGQtyA5YNqdqtOgywVdGx/view?usp=sharing",
+      pos: "1st place",
+    },
+    {
+      name: "LKSN Cloud Computing",
+      image: "lksn.jpg",
+      href: "https://drive.google.com/file/d/15lP-HQjh1Qi8uymXCU3fvCBttRb2L6aC/view?usp=sharing",
       pos: "1st place",
     },
   ],

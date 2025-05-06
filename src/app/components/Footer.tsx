@@ -4,7 +4,9 @@ export default function Footer() {
       <p className="text-start text-white font-medium text-base sm:text-xl md:text-3xl">
         teguhbayupratama@gmail.com
       </p>
-      <p className="text-end text-white">&copy; 2024 Teguh Bayu Pratama</p>
+      <p className="text-end text-white">
+        &copy; ${new Date().getFullYear()} Teguh Bayu Pratama
+      </p>
     </footer>
   );
 }
