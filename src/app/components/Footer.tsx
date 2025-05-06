@@ -5,7 +5,7 @@ export default function Footer() {
         teguhbayupratama@gmail.com
       </p>
       <p className="text-end text-white">
-        &copy; ${new Date().getFullYear()} Teguh Bayu Pratama
+        &copy; {new Date().getFullYear()} Teguh Bayu Pratama
       </p>
     </footer>
   );
