@@ -590,7 +590,8 @@ export default function CloudConsoleStage({
 
     let awsOrbitMesh: THREE.Object3D | null = null;
     let trophyStarMesh: THREE.Object3D | null = null;
-    let stackNodeMesh: THREE.Object3D | null = null;
+    let stackGearMainMesh: THREE.Object3D | null = null;
+    let stackGearSubMesh: THREE.Object3D | null = null;
     let paperPlaneMesh: THREE.Object3D | null = null;
     let paperPlaneBaseY = 0;
 
@@ -623,8 +624,11 @@ export default function CloudConsoleStage({
               if (id === "trophy" && mesh.name === "TrophyStar") {
                 trophyStarMesh = mesh;
               }
-              if (id === "stack" && mesh.name === "StackNode") {
-                stackNodeMesh = mesh;
+              if (id === "stack" && mesh.name === "StackGearMain") {
+                stackGearMainMesh = mesh;
+              }
+              if (id === "stack" && mesh.name === "StackGearSub") {
+                stackGearSubMesh = mesh;
               }
               if (id === "mail" && mesh.name === "MailPaperPlane") {
                 paperPlaneMesh = mesh;
@@ -663,7 +667,7 @@ export default function CloudConsoleStage({
     loadScreenModel("laptop", "/models/screen-laptop.glb", 1.12, 0.04);
     loadScreenModel("aws", "/models/screen-aws-cloud.glb", 1.02, 0.06);
     loadScreenModel("camera", "/models/screen-camera.glb", 1.12, -0.02);
-    loadScreenModel("stack", "/models/screen-stack.glb", 1.15, 0.04);
+    loadScreenModel("stack", "/models/screen-stack.glb", 0.96, 0.04);
     loadScreenModel("trophy", "/models/screen-trophy.glb", 1.04, -0.06);
     loadScreenModel("mail", "/models/screen-mail.glb", 1.14, 0.04);
 
@@ -887,9 +891,11 @@ export default function CloudConsoleStage({
         if (trophyStarMesh) {
           trophyStarMesh.rotation.y = elapsed * 1.35;
         }
-        if (stackNodeMesh) {
-          stackNodeMesh.rotation.y = elapsed * 1.4;
-          stackNodeMesh.rotation.x = elapsed * 0.9;
+        if (stackGearMainMesh) {
+          stackGearMainMesh.rotation.z = elapsed * 1.1;
+        }
+        if (stackGearSubMesh) {
+          stackGearSubMesh.rotation.z = -elapsed * 1.375 + 0.39;
         }
         if (paperPlaneMesh) {
           paperPlaneMesh.position.y =
