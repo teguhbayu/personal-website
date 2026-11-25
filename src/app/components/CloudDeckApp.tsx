@@ -1,9 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import gsap from "gsap";
 import { FaGithub, FaInstagram, FaLinkedin } from "react-icons/fa6";
 import { CHANNELS, ChannelId, OWNER, SOCIALS } from "@/data/portfolio";
+import { CHANNEL_ROUTES, pathnameToChannel } from "@/lib/seo";
 import CloudConsoleStage, {
   SCREEN_MODEL_META,
   SCREEN_MODEL_ORDER,
@@ -23,13 +26,13 @@ const CHANNEL_TO_SCREEN: Record<ChannelId, ScreenModelId> = {
 };
 
 export default function CloudDeckApp() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const openChannel = pathnameToChannel(pathname);
+
   const [sky, setSky] = useState<SkyMode>("day");
   const [cycleIndex, setCycleIndex] = useState<number>(0);
   const [hoveredChannel, setHoveredChannel] = useState<ChannelId | null>(null);
-  const [openChannel, setOpenChannel] = useState<Exclude<
-    ChannelId,
-    "home"
-  > | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [spinNonce, setSpinNonce] = useState(0);
   const mobileDrawerRef = useRef<HTMLDivElement | null>(null);
@@ -74,17 +77,16 @@ export default function CloudDeckApp() {
     openChannel ??
     SCREEN_MODEL_META[activeScreenModel].channel;
 
-  const handleSelectChannel = useCallback((ch: ChannelId) => {
-    setHoveredChannel(null);
-    setMobileMenuOpen(false);
-    const modelIdx = SCREEN_MODEL_ORDER.indexOf(CHANNEL_TO_SCREEN[ch]);
-    if (modelIdx >= 0) setCycleIndex(modelIdx);
-    if (ch === "home") {
-      setOpenChannel(null);
-    } else {
-      setOpenChannel(ch);
-    }
-  }, []);
+  const handleSelectChannel = useCallback(
+    (ch: ChannelId) => {
+      setHoveredChannel(null);
+      setMobileMenuOpen(false);
+      const modelIdx = SCREEN_MODEL_ORDER.indexOf(CHANNEL_TO_SCREEN[ch]);
+      if (modelIdx >= 0) setCycleIndex(modelIdx);
+      router.push(CHANNEL_ROUTES[ch]);
+    },
+    [router],
+  );
 
   const handleCycleScreenModel = useCallback(() => {
     setHoveredChannel(null);
@@ -191,9 +193,12 @@ export default function CloudDeckApp() {
       )}
 
       <header className="relative z-50 pointer-events-none px-5 sm:px-8 lg:px-12 pt-5 sm:pt-7 flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => handleSelectChannel("home")}
+        <Link
+          href={CHANNEL_ROUTES.home}
+          onClick={() => {
+            setHoveredChannel(null);
+            setMobileMenuOpen(false);
+          }}
           className="pointer-events-auto min-h-[44px] px-3.5 inline-flex items-center gap-2.5 rounded-sm bg-sheet/95 border border-rule text-ink hover:border-accent-strong transition-colors"
         >
           <span
@@ -203,7 +208,7 @@ export default function CloudDeckApp() {
           <span className="font-display font-extrabold text-lg sm:text-xl tracking-tight">
             {OWNER.shortName}
           </span>
-        </button>
+        </Link>
 
         <div className="pointer-events-auto flex items-center gap-2">
           <button
@@ -245,13 +250,20 @@ export default function CloudDeckApp() {
               const isHovered = hoveredChannel === ch.id;
 
               return (
-                <button
+                <Link
                   key={ch.id}
-                  type="button"
+                  href={CHANNEL_ROUTES[ch.id]}
                   onMouseEnter={() => setHoveredChannel(ch.id)}
                   onFocus={() => setHoveredChannel(ch.id)}
                   onBlur={() => setHoveredChannel(null)}
-                  onClick={() => handleSelectChannel(ch.id)}
+                  onClick={() => {
+                    setHoveredChannel(null);
+                    setMobileMenuOpen(false);
+                    const modelIdx = SCREEN_MODEL_ORDER.indexOf(
+                      CHANNEL_TO_SCREEN[ch.id],
+                    );
+                    if (modelIdx >= 0) setCycleIndex(modelIdx);
+                  }}
                   aria-current={isSelected ? "page" : undefined}
                   className={`group min-h-[44px] py-1 pr-3 inline-flex items-center gap-3 text-left transition-transform duration-200 ${
                     isHovered || isSelected
@@ -283,7 +295,7 @@ export default function CloudDeckApp() {
                       rollClassName="text-accent"
                     />
                   </span>
-                </button>
+                </Link>
               );
             })}
           </nav>
@@ -343,8 +355,8 @@ export default function CloudDeckApp() {
       <ChannelDrawer
         channel={openChannel}
         onClose={() => {
-          setOpenChannel(null);
           setHoveredChannel(null);
+          router.push(CHANNEL_ROUTES.home);
         }}
         onSpinConsole={() => setSpinNonce((n) => n + 1)}
       />
@@ -370,10 +382,17 @@ export default function CloudDeckApp() {
         >
           <nav aria-label="Mobile channels" className="flex flex-col">
             {CHANNELS.map((ch) => (
-              <button
+              <Link
                 key={ch.id}
-                type="button"
-                onClick={() => handleSelectChannel(ch.id)}
+                href={CHANNEL_ROUTES[ch.id]}
+                onClick={() => {
+                  setHoveredChannel(null);
+                  setMobileMenuOpen(false);
+                  const modelIdx = SCREEN_MODEL_ORDER.indexOf(
+                    CHANNEL_TO_SCREEN[ch.id],
+                  );
+                  if (modelIdx >= 0) setCycleIndex(modelIdx);
+                }}
                 className="py-4 min-h-[52px] border-b border-rule flex items-baseline justify-between text-left text-ink overflow-hidden"
               >
                 <span
@@ -389,7 +408,7 @@ export default function CloudDeckApp() {
                 <span className="font-mono text-xs text-ink-muted">
                   {ch.code}
                 </span>
-              </button>
+              </Link>
             ))}
           </nav>
 
