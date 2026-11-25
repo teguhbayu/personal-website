@@ -2,34 +2,97 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  @apply bg-primary;
+:root,
+[data-sky="day"] {
+  --sky-top: #7ab8f5;
+  --sky-mid: #b8dcfa;
+  --sky-bottom: #dcefff;
+  --sky-ink-rgb: 6 20 43;
+  --sheet-rgb: 245 242 235;
+  --sheet-alt-rgb: 233 228 216;
+  --ink-rgb: 7 20 43;
+  --ink-muted-rgb: 46 66 99;
+  --accent-rgb: 184 13 50;
+  --accent-strong-rgb: 200 16 56;
+  --rule-color: rgba(7, 20, 43, 0.18);
+  --focus-ring: #c81038;
+  --scrim: rgba(7, 20, 43, 0.72);
+  color-scheme: light;
+}
+
+[data-sky="night"] {
+  --sky-top: #060e20;
+  --sky-mid: #0d1e3d;
+  --sky-bottom: #162c54;
+  --sky-ink-rgb: 245 242 235;
+  --sheet-rgb: 8 19 38;
+  --sheet-alt-rgb: 15 30 56;
+  --ink-rgb: 245 242 235;
+  --ink-muted-rgb: 184 196 217;
+  --accent-rgb: 255 102 135;
+  --accent-strong-rgb: 200 16 56;
+  --rule-color: rgba(245, 242, 235, 0.18);
+  --focus-ring: #ff6687;
+  --scrim: rgba(4, 10, 22, 0.8);
+  color-scheme: dark;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  overflow-x: clip;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.sky-backdrop {
+  background: linear-gradient(
+    180deg,
+    var(--sky-top) 0%,
+    var(--sky-mid) 56%,
+    var(--sky-bottom) 100%
+  );
+  transition: background 450ms ease;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+::selection {
+  background-color: #c81038;
+  color: #ffffff;
 }
 
 ::-webkit-scrollbar {
-  @apply w-2 h-2;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-white backdrop-blur-[3px] bg-opacity-60;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-primary;
+  background: var(--rule-color);
 }
 
-::-webkit-scrollbar-thumb {
-  @apply bg-primary;
+::-webkit-scrollbar-thumb:hover {
+  background: #c81038;
 }
 
-@layer base {
-  .font-outline {
-    -webkit-text-stroke: 2px white;
-  }
-
-  @media (min-width: 1280px) {
-    .font-outline {
-      -webkit-text-stroke: 5px white;
-    }
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

@@ -8,17 +8,24 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      backgroundImage: {
-        "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
-        "gradient-conic":
-          "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
+      fontFamily: {
+        display: ["var(--font-syne)", "sans-serif"],
+        sans: ["var(--font-jakarta)", "sans-serif"],
+        mono: ["var(--font-plex-mono)", "monospace"],
       },
       colors: {
-        primary: "#FF204E",
-        secondary: "#00224D",
+        sheet: "rgb(var(--sheet-rgb) / <alpha-value>)",
+        "sheet-alt": "rgb(var(--sheet-alt-rgb) / <alpha-value>)",
+        ink: "rgb(var(--ink-rgb) / <alpha-value>)",
+        "ink-muted": "rgb(var(--ink-muted-rgb) / <alpha-value>)",
+        "sky-ink": "rgb(var(--sky-ink-rgb) / <alpha-value>)",
+        accent: "rgb(var(--accent-rgb) / <alpha-value>)",
+        "accent-strong": "rgb(var(--accent-strong-rgb) / <alpha-value>)",
+        rule: "var(--rule-color)",
       },
     },
   },
   plugins: [],
 };
+
 export default config;
