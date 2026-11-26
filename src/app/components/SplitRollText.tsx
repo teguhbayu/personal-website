@@ -28,16 +28,29 @@ export default function SplitRollText({
     if (!root) return;
     const target = root.closest("button, a") ?? root;
     const onEnter = () => setSelfActive(true);
-    const onLeave = () => setSelfActive(false);
+    const onFocus = () => {
+      if (target.matches(":focus-visible")) {
+        setSelfActive(true);
+      }
+    };
+    const onReset = () => setSelfActive(false);
+
     target.addEventListener("mouseenter", onEnter);
-    target.addEventListener("mouseleave", onLeave);
-    target.addEventListener("focus", onEnter);
-    target.addEventListener("blur", onLeave);
+    target.addEventListener("mouseleave", onReset);
+    target.addEventListener("focus", onFocus);
+    target.addEventListener("blur", onReset);
+    target.addEventListener("click", onReset);
+    target.addEventListener("pointercancel", onReset);
+    window.addEventListener("blur", onReset);
+
     return () => {
       target.removeEventListener("mouseenter", onEnter);
-      target.removeEventListener("mouseleave", onLeave);
-      target.removeEventListener("focus", onEnter);
-      target.removeEventListener("blur", onLeave);
+      target.removeEventListener("mouseleave", onReset);
+      target.removeEventListener("focus", onFocus);
+      target.removeEventListener("blur", onReset);
+      target.removeEventListener("click", onReset);
+      target.removeEventListener("pointercancel", onReset);
+      window.removeEventListener("blur", onReset);
     };
   }, [triggered]);
 
@@ -47,6 +60,8 @@ export default function SplitRollText({
 
     const slots = root.querySelectorAll<HTMLElement>("[data-roll-slot]");
     if (slots.length === 0) return;
+
+    gsap.killTweensOf(slots);
 
     const prefersReduced = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
@@ -62,9 +77,13 @@ export default function SplitRollText({
       duration: active ? 0.42 : 0.34,
       stagger: active ? 0.022 : 0.016,
       ease: active ? "power3.inOut" : "power3.out",
-      overwrite: "auto",
+      overwrite: true,
     });
-  }, [active]);
+
+    return () => {
+      gsap.killTweensOf(slots);
+    };
+  }, [active, text]);
 
   const chars = Array.from(text);
 

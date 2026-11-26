@@ -14,7 +14,8 @@ export type ScreenModelId =
   | "laptop"
   | "stack"
   | "trophy"
-  | "mail";
+  | "mail"
+  | "blog";
 
 export const SCREEN_MODEL_META: Record<
   ScreenModelId,
@@ -26,6 +27,7 @@ export const SCREEN_MODEL_META: Record<
   stack: { label: "Tech Stack", channel: "stack", accentHex: 0x3abeff },
   trophy: { label: "Trophy", channel: "awards", accentHex: 0xf8c638 },
   mail: { label: "Mail", channel: "contact", accentHex: 0xff4d73 },
+  blog: { label: "Blog", channel: "home", accentHex: 0xff204e },
 };
 
 export const SCREEN_MODEL_ORDER: ScreenModelId[] = [
@@ -34,8 +36,11 @@ export const SCREEN_MODEL_ORDER: ScreenModelId[] = [
   "stack",
   "trophy",
   "mail",
+  "blog",
   "camera",
 ];
+
+export type ScreenZoomMode = "idle" | "zoom-in" | "zoomed-in" | "zoom-out";
 
 interface CloudConsoleStageProps {
   sky: SkyMode;
@@ -43,10 +48,15 @@ interface CloudConsoleStageProps {
   previewChannel: ChannelId;
   openChannel: Exclude<ChannelId, "home"> | null;
   spinNonce: number;
+  screenZoomMode?: ScreenZoomMode;
+  paused?: boolean;
+  onZoomInComplete?: () => void;
+  onZoomOutComplete?: () => void;
   onLoadProgress: (pct: number) => void;
   onLoadReady: () => void;
   onLoadError: (msg: string) => void;
   onSelectChannel: (ch: ChannelId) => void;
+  onOpenBlog?: () => void;
   onCycleScreenModel: () => void;
   onToggleSky?: () => void;
 }
@@ -125,10 +135,15 @@ export default function CloudConsoleStage({
   previewChannel,
   openChannel,
   spinNonce,
+  screenZoomMode = "idle",
+  paused = false,
+  onZoomInComplete,
+  onZoomOutComplete,
   onLoadProgress,
   onLoadReady,
   onLoadError,
   onSelectChannel,
+  onOpenBlog,
   onCycleScreenModel,
 }: CloudConsoleStageProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -137,17 +152,32 @@ export default function CloudConsoleStage({
   const screenModelRef = useRef(screenModel);
   const previewRef = useRef(previewChannel);
   const openChannelRef = useRef(openChannel);
+  const zoomActiveRef = useRef(false);
+  const pausedRef = useRef(paused);
+  const consoleLoadedRef = useRef(false);
+  const pendingZoomOutRef = useRef(false);
+  const resumeLoopRef = useRef<(() => void) | null>(null);
+  const runZoomOutRef = useRef<(() => void) | null>(null);
 
   const callbacksRef = useRef({
     onLoadProgress,
     onLoadReady,
     onLoadError,
     onSelectChannel,
+    onOpenBlog,
     onCycleScreenModel,
+    onZoomInComplete,
+    onZoomOutComplete,
   });
 
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const consoleAnchorRef = useRef<THREE.Group | null>(null);
+  const floatGroupRef = useRef<THREE.Group | null>(null);
   const consoleSpinGroupRef = useRef<THREE.Group | null>(null);
+  const screenBoundsRef = useRef<{
+    center: THREE.Vector3;
+    size: THREE.Vector3;
+  } | null>(null);
   const screenModelsMapRef = useRef<
     Partial<Record<ScreenModelId, THREE.Group>>
   >({});
@@ -216,7 +246,7 @@ export default function CloudConsoleStage({
 
   useEffect(() => {
     openChannelRef.current = openChannel;
-    if (!consoleAnchorRef.current) return;
+    if (!consoleAnchorRef.current || zoomActiveRef.current) return;
     const isDesktop = window.innerWidth >= 1024;
     const isWide = window.innerWidth >= 1280;
     const targetX = openChannel
@@ -261,7 +291,8 @@ export default function CloudConsoleStage({
   }, [openChannel]);
 
   useEffect(() => {
-    if (spinNonce === 0 || !consoleSpinGroupRef.current) return;
+    if (spinNonce === 0 || !consoleSpinGroupRef.current || zoomActiveRef.current)
+      return;
     gsap.to(consoleSpinGroupRef.current.rotation, {
       y: consoleSpinGroupRef.current.rotation.y + Math.PI * 2,
       duration: 1.15,
@@ -270,19 +301,290 @@ export default function CloudConsoleStage({
   }, [spinNonce]);
 
   useEffect(() => {
+    pausedRef.current = paused;
+    if (!paused) {
+      resumeLoopRef.current?.();
+    }
+  }, [paused]);
+
+  useEffect(() => {
+    const getRestingLayout = () => {
+      const isDesktop = window.innerWidth >= 1024;
+      const isWide = window.innerWidth >= 1280;
+      const open = openChannelRef.current;
+      return {
+        x: open ? (isWide ? -0.78 : isDesktop ? -1.1 : 0) : isDesktop ? 0.68 : 0,
+        y: open ? (isDesktop ? 0.02 : 0.65) : isDesktop ? 0.04 : 0.62,
+        scale: open
+          ? isWide
+            ? 0.74
+            : isDesktop
+              ? 0.68
+              : 0.56
+          : isDesktop
+            ? 1.06
+            : 0.66,
+        restRotY: open ? 0.24 : -0.18,
+      };
+    };
+
+    const getScreenDiveMetrics = (camera: THREE.PerspectiveCamera) => {
+      const bounds = screenBoundsRef.current;
+      const finalScale = window.innerWidth >= 1024 ? 1.06 : 0.85;
+      const screenCenterX = (bounds?.center.x ?? 0) * finalScale;
+      const screenCenterY = (bounds?.center.y ?? 0.42) * finalScale;
+      const screenFrontZ =
+        ((bounds?.center.z ?? 0.25) + (bounds?.size.z ?? 0.05) * 0.5) *
+        finalScale;
+      const screenHeight = Math.max(0.5, (bounds?.size.y ?? 1.1) * finalScale);
+      const fovRad = THREE.MathUtils.degToRad(camera.fov);
+      const fillDistance = screenHeight / 2 / Math.tan(fovRad / 2);
+      const diveZ = screenFrontZ + Math.max(0.32, fillDistance * 0.34);
+      return {
+        finalScale,
+        screenCenterX,
+        screenCenterY,
+        screenFrontZ,
+        diveZ,
+      };
+    };
+
+    let activeTl: gsap.core.Timeline | null = null;
+
+    const triggerZoomOut = () => {
+      const camera = cameraRef.current;
+      const anchor = consoleAnchorRef.current;
+      const floatGroup = floatGroupRef.current;
+      const spinGroup = consoleSpinGroupRef.current;
+      if (!camera || !anchor || !floatGroup || !spinGroup) {
+        zoomActiveRef.current = false;
+        callbacksRef.current.onZoomOutComplete?.();
+        return;
+      }
+
+      zoomActiveRef.current = true;
+      gsap.killTweensOf(anchor.position);
+      gsap.killTweensOf(anchor.scale);
+      gsap.killTweensOf(floatGroup.position);
+      gsap.killTweensOf(floatGroup.rotation);
+      gsap.killTweensOf(spinGroup.rotation);
+      gsap.killTweensOf(camera.position);
+
+      const {
+        finalScale,
+        screenCenterX,
+        screenCenterY,
+        screenFrontZ,
+        diveZ,
+      } = getScreenDiveMetrics(camera);
+      const rest = getRestingLayout();
+      const nearestSpinY =
+        Math.round(spinGroup.rotation.y / (Math.PI * 2)) * (Math.PI * 2);
+
+      anchor.position.set(0, 0, 0);
+      anchor.scale.setScalar(finalScale);
+      floatGroup.position.set(0, 0, 0);
+      floatGroup.rotation.set(0, 0, 0);
+      spinGroup.rotation.y = nearestSpinY;
+      camera.position.set(screenCenterX, screenCenterY, diveZ);
+
+      const lookState = {
+        x: screenCenterX,
+        y: screenCenterY,
+        z: screenFrontZ,
+      };
+      camera.lookAt(lookState.x, lookState.y, lookState.z);
+
+      activeTl = gsap.timeline({
+        onUpdate: () => {
+          camera.lookAt(lookState.x, lookState.y, lookState.z);
+        },
+        onComplete: () => {
+          camera.position.set(0, 0.08, 7.6);
+          camera.lookAt(0, 0, 0);
+          zoomActiveRef.current = false;
+          callbacksRef.current.onZoomOutComplete?.();
+        },
+      });
+
+      activeTl
+        .to(
+          camera.position,
+          { x: 0, y: 0.08, z: 7.6, duration: 0.88, ease: "power3.out" },
+          0,
+        )
+        .to(
+          lookState,
+          { x: 0, y: 0, z: 0, duration: 0.72, ease: "power2.out" },
+          0.08,
+        )
+        .to(
+          anchor.position,
+          { x: rest.x, y: rest.y, z: 0, duration: 0.82, ease: "power3.out" },
+          0.14,
+        )
+        .to(
+          anchor.scale,
+          {
+            x: rest.scale,
+            y: rest.scale,
+            z: rest.scale,
+            duration: 0.82,
+            ease: "power3.out",
+          },
+          0.14,
+        )
+        .to(
+          floatGroup.rotation,
+          { y: rest.restRotY, duration: 0.82, ease: "power3.out" },
+          0.16,
+        );
+    };
+
+    runZoomOutRef.current = triggerZoomOut;
+
+    if (screenZoomMode === "idle") {
+      pendingZoomOutRef.current = false;
+      zoomActiveRef.current = false;
+      return;
+    }
+
+    if (screenZoomMode === "zoomed-in") {
+      pendingZoomOutRef.current = false;
+      zoomActiveRef.current = true;
+      return;
+    }
+
+    if (screenZoomMode === "zoom-out") {
+      zoomActiveRef.current = true;
+      if (consoleLoadedRef.current) {
+        pendingZoomOutRef.current = false;
+        triggerZoomOut();
+      } else {
+        pendingZoomOutRef.current = true;
+      }
+      return () => {
+        pendingZoomOutRef.current = false;
+        activeTl?.kill();
+      };
+    }
+
+    const camera = cameraRef.current;
+    const anchor = consoleAnchorRef.current;
+    const floatGroup = floatGroupRef.current;
+    const spinGroup = consoleSpinGroupRef.current;
+
+    if (!camera || !anchor || !floatGroup || !spinGroup) {
+      callbacksRef.current.onZoomInComplete?.();
+      return;
+    }
+
+    zoomActiveRef.current = true;
+
+    gsap.killTweensOf(anchor.position);
+    gsap.killTweensOf(anchor.scale);
+    gsap.killTweensOf(floatGroup.position);
+    gsap.killTweensOf(floatGroup.rotation);
+    gsap.killTweensOf(spinGroup.rotation);
+    gsap.killTweensOf(camera.position);
+
+    const { finalScale, screenCenterX, screenCenterY, screenFrontZ, diveZ } =
+      getScreenDiveMetrics(camera);
+
+    const nearestSpinY =
+      Math.round(spinGroup.rotation.y / (Math.PI * 2)) * (Math.PI * 2);
+
+    const lookState = { x: 0, y: 0, z: 0 };
+
+    activeTl = gsap.timeline({
+      onUpdate: () => {
+        camera.lookAt(lookState.x, lookState.y, lookState.z);
+      },
+      onComplete: () => {
+        callbacksRef.current.onZoomInComplete?.();
+      },
+    });
+
+    activeTl
+      .to(
+        anchor.position,
+        { x: 0, y: 0, z: 0, duration: 0.42, ease: "power3.out" },
+        0,
+      )
+      .to(
+        anchor.scale,
+        {
+          x: finalScale,
+          y: finalScale,
+          z: finalScale,
+          duration: 0.42,
+          ease: "power3.out",
+        },
+        0,
+      )
+      .to(
+        floatGroup.position,
+        { x: 0, y: 0, z: 0, duration: 0.38, ease: "power3.out" },
+        0,
+      )
+      .to(
+        floatGroup.rotation,
+        { x: 0, y: 0, z: 0, duration: 0.42, ease: "power3.out" },
+        0,
+      )
+      .to(
+        spinGroup.rotation,
+        { y: nearestSpinY, duration: 0.42, ease: "power3.out" },
+        0,
+      )
+      .to(
+        lookState,
+        {
+          x: screenCenterX,
+          y: screenCenterY,
+          z: screenFrontZ,
+          duration: 0.55,
+          ease: "power2.inOut",
+        },
+        0.05,
+      )
+      .to(
+        camera.position,
+        {
+          x: screenCenterX,
+          y: screenCenterY,
+          z: diveZ,
+          duration: 0.78,
+          ease: "power3.in",
+        },
+        0.14,
+      );
+
+    return () => {
+      activeTl?.kill();
+    };
+  }, [screenZoomMode]);
+
+  useEffect(() => {
     callbacksRef.current = {
       onLoadProgress,
       onLoadReady,
       onLoadError,
       onSelectChannel,
+      onOpenBlog,
       onCycleScreenModel,
+      onZoomInComplete,
+      onZoomOutComplete,
     };
   }, [
     onLoadProgress,
     onLoadReady,
     onLoadError,
     onSelectChannel,
+    onOpenBlog,
     onCycleScreenModel,
+    onZoomInComplete,
+    onZoomOutComplete,
   ]);
 
   useEffect(() => {
@@ -330,6 +632,7 @@ export default function CloudConsoleStage({
       100,
     );
     camera.position.set(0, 0.08, 7.6);
+    cameraRef.current = camera;
 
     const hemiLight = new THREE.HemisphereLight(0xd8ecff, 0x2c4775, 1.35);
     scene.add(hemiLight);
@@ -420,6 +723,7 @@ export default function CloudConsoleStage({
 
     const floatGroup = new THREE.Group();
     consoleAnchor.add(floatGroup);
+    floatGroupRef.current = floatGroup;
 
     const spinGroup = new THREE.Group();
     floatGroup.add(spinGroup);
@@ -454,6 +758,7 @@ export default function CloudConsoleStage({
       "stack",
       "trophy",
       "mail",
+      "blog",
     ];
     const assetProgress: Record<string, number> = Object.fromEntries(
       assetKeys.map((k) => [k, 0]),
@@ -476,6 +781,7 @@ export default function CloudConsoleStage({
       "/models/bayu-cloud-console.glb",
       (gltf) => {
         const model = gltf.scene;
+        model.updateMatrixWorld(true);
         model.traverse((child) => {
           if ((child as THREE.Mesh).isMesh) {
             const mesh = child as THREE.Mesh;
@@ -484,6 +790,11 @@ export default function CloudConsoleStage({
                 map: screenRT.texture,
                 toneMapped: false,
               });
+              const box = new THREE.Box3().setFromObject(mesh);
+              screenBoundsRef.current = {
+                center: box.getCenter(new THREE.Vector3()),
+                size: box.getSize(new THREE.Vector3()),
+              };
             }
             if (
               mesh.name === "BtnA" ||
@@ -497,7 +808,7 @@ export default function CloudConsoleStage({
         });
         spinGroup.add(model);
 
-        if (!prefersReducedMotion) {
+        if (!prefersReducedMotion && !zoomActiveRef.current) {
           model.scale.setScalar(0.84);
           gsap.to(model.scale, {
             x: 1,
@@ -508,9 +819,15 @@ export default function CloudConsoleStage({
           });
         }
 
+        consoleLoadedRef.current = true;
         assetDone.console = true;
         assetProgress.console = 100;
         updateProgress();
+
+        if (pendingZoomOutRef.current) {
+          pendingZoomOutRef.current = false;
+          runZoomOutRef.current?.();
+        }
       },
       (xhr) => {
         if (xhr.total > 0) {
@@ -594,6 +911,11 @@ export default function CloudConsoleStage({
     let stackGearSubMesh: THREE.Object3D | null = null;
     let paperPlaneMesh: THREE.Object3D | null = null;
     let paperPlaneBaseY = 0;
+    let blogPenPivot: THREE.Object3D | null = null;
+    let blogPenBaseY = 0;
+    let blogPenBaseRotZ = 0;
+    let blogBadgePivot: THREE.Object3D | null = null;
+    let blogBadgeBaseY = 0;
 
     const loadScreenModel = (
       id: ScreenModelId,
@@ -610,6 +932,15 @@ export default function CloudConsoleStage({
           model.position.y = yOffset;
 
           model.traverse((child) => {
+            if (id === "blog" && child.name === "BlogPen") {
+              blogPenPivot = child;
+              blogPenBaseY = child.position.y;
+              blogPenBaseRotZ = child.rotation.z;
+            }
+            if (id === "blog" && child.name === "BlogPostBadge") {
+              blogBadgePivot = child;
+              blogBadgeBaseY = child.position.y;
+            }
             if ((child as THREE.Mesh).isMesh) {
               const mesh = child as THREE.Mesh;
               if (id === "laptop" && mesh.name === "LaptopCodeScreen") {
@@ -670,6 +1001,7 @@ export default function CloudConsoleStage({
     loadScreenModel("stack", "/models/screen-stack.glb", 0.96, 0.04);
     loadScreenModel("trophy", "/models/screen-trophy.glb", 1.04, -0.06);
     loadScreenModel("mail", "/models/screen-mail.glb", 1.14, 0.04);
+    loadScreenModel("blog", "/models/screen-blog.glb", 1.02, -0.02);
 
     const raycaster = new THREE.Raycaster();
     const pointerNDC = new THREE.Vector2(0, 0);
@@ -691,7 +1023,7 @@ export default function CloudConsoleStage({
     };
 
     const onPointerDown = (e: PointerEvent) => {
-      if (e.target !== renderer.domElement) return;
+      if (zoomActiveRef.current || e.target !== renderer.domElement) return;
       isDragging = true;
       dragDistance = 0;
       prevX = e.clientX;
@@ -753,10 +1085,14 @@ export default function CloudConsoleStage({
           pressButtonAnim(hitMesh);
 
           if (hitMesh.name === "BtnA") {
-            const mappedCh = SCREEN_MODEL_META[screenModelRef.current].channel;
-            callbacksRef.current.onSelectChannel(
-              mappedCh === "home" ? "projects" : mappedCh,
-            );
+            if (screenModelRef.current === "blog" && callbacksRef.current.onOpenBlog) {
+              callbacksRef.current.onOpenBlog();
+            } else {
+              const mappedCh = SCREEN_MODEL_META[screenModelRef.current].channel;
+              callbacksRef.current.onSelectChannel(
+                mappedCh === "home" ? "projects" : mappedCh,
+              );
+            }
           } else if (hitMesh.name === "BtnB") {
           } else if (hitMesh.name === "DPad") {
             callbacksRef.current.onCycleScreenModel();
@@ -772,6 +1108,7 @@ export default function CloudConsoleStage({
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
+      if (zoomActiveRef.current) return;
 
       const isDesktop = width >= 1024;
       const isWide = width >= 1280;
@@ -828,6 +1165,11 @@ export default function CloudConsoleStage({
     let lastCodeTick = -1;
 
     const animate = (now: number) => {
+      if (pausedRef.current) {
+        rafId = 0;
+        return;
+      }
+
       const dt = Math.min((now - lastTime) / 1000, 0.05);
       lastTime = now;
 
@@ -901,24 +1243,36 @@ export default function CloudConsoleStage({
           paperPlaneMesh.position.y =
             paperPlaneBaseY + Math.sin(elapsed * 2.4) * 0.06;
         }
+        if (blogPenPivot) {
+          blogPenPivot.position.y =
+            blogPenBaseY + Math.sin(elapsed * 2.2) * 0.045;
+          blogPenPivot.rotation.z =
+            blogPenBaseRotZ + Math.sin(elapsed * 1.7) * 0.07;
+        }
+        if (blogBadgePivot) {
+          blogBadgePivot.position.y =
+            blogBadgeBaseY + Math.cos(elapsed * 1.85) * 0.04;
+        }
       }
 
-      if (!prefersReducedMotion) {
-        floatGroup.position.y = Math.sin(elapsed * 1.15) * 0.11;
-        floatGroup.rotation.z = Math.sin(elapsed * 0.72) * 0.032;
+      if (!zoomActiveRef.current) {
+        if (!prefersReducedMotion) {
+          floatGroup.position.y = Math.sin(elapsed * 1.15) * 0.11;
+          floatGroup.rotation.z = Math.sin(elapsed * 0.72) * 0.032;
+        }
+
+        if (!isDragging) {
+          dragRotY += (0 - dragRotY) * 0.025;
+          dragRotX += (0 - dragRotX) * 0.04;
+        }
+
+        const heroRestY = openChannelRef.current ? 0.24 : -0.18;
+        const targetRotY = heroRestY + smoothPointer.x * 0.24 + dragRotY;
+        const targetRotX = -smoothPointer.y * 0.14 + dragRotX;
+
+        floatGroup.rotation.y += (targetRotY - floatGroup.rotation.y) * 0.08;
+        floatGroup.rotation.x += (targetRotX - floatGroup.rotation.x) * 0.08;
       }
-
-      if (!isDragging) {
-        dragRotY += (0 - dragRotY) * 0.025;
-        dragRotX += (0 - dragRotX) * 0.04;
-      }
-
-      const heroRestY = openChannelRef.current ? 0.24 : -0.18;
-      const targetRotY = heroRestY + smoothPointer.x * 0.24 + dragRotY;
-      const targetRotX = -smoothPointer.y * 0.14 + dragRotX;
-
-      floatGroup.rotation.y += (targetRotY - floatGroup.rotation.y) * 0.08;
-      floatGroup.rotation.x += (targetRotX - floatGroup.rotation.x) * 0.08;
 
       cloudsGroup.position.x = -smoothPointer.x * 0.35;
       cloudsGroup.position.y = -smoothPointer.y * 0.2;
@@ -940,13 +1294,29 @@ export default function CloudConsoleStage({
       }
     };
 
-    animate(performance.now());
+    resumeLoopRef.current = () => {
+      if (pausedRef.current) return;
+      if (!prefersReducedMotion && rafId === 0) {
+        lastTime = performance.now();
+        rafId = window.requestAnimationFrame(animate);
+      } else if (prefersReducedMotion) {
+        animate(performance.now());
+      }
+    };
+
+    if (!pausedRef.current) {
+      animate(performance.now());
+    }
 
     const reducedTimer = prefersReducedMotion
-      ? window.setInterval(() => animate(performance.now()), 300)
+      ? window.setInterval(() => {
+          if (!pausedRef.current) animate(performance.now());
+        }, 300)
       : null;
 
     return () => {
+      resumeLoopRef.current = null;
+      consoleLoadedRef.current = false;
       if (rafId) window.cancelAnimationFrame(rafId);
       if (reducedTimer) window.clearInterval(reducedTimer);
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);

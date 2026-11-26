@@ -1,0 +1,200 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum POST_STATUS {
+  DRAFT
+  PUBLISHED
+  UNLISTED
+  PRIVATE
+}
+
+model BlogPost {
+  id          String      @id @default(uuid())
+  slug        String      @unique
+  title       String
+  headerImage String
+  body        String      @db.LongText
+  visibility  POST_STATUS @default(DRAFT)
+
+  written_by    User      @relation(fields: [written_by_id], references: [id])
+  written_by_id String
+  created_at    DateTime  @default(now())
+  published_at  DateTime?
+  edited_at     DateTime?
+}
+
+model User {
+  id            String     @id
+  name          String     @db.Text
+  email         String
+  emailVerified Boolean    @default(false)
+  image         String?    @db.Text
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  blogPosts     BlogPost[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?  @db.Text
+  userAgent String?  @db.Text
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String    @db.Text
+  providerId            String    @db.Text
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @db.Text
+  refreshToken          String?   @db.Text
+  idToken               String?   @db.Text
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?   @db.Text
+  password              String?   @db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String   @db.Text
+  value      String   @db.Text
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier(length: 191)])
+  @@map("verification")
+}
+
+enum CERTIFICATE_CATEGORY {
+  COMPETITION
+  LANGUAGE
+}
+
+model SiteConfig {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String   @db.LongText
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("site_config")
+}
+
+model VerifiedLedger {
+  id        String   @id @default(uuid())
+  label     String
+  value     String
+  scope     String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("verified_ledger")
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  index       String
+  name        String
+  subtitle    String
+  description String   @db.Text
+  image       String   @db.Text
+  href        String   @db.Text
+  host        String
+  stack       Json
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("project")
+}
+
+model SkillGroup {
+  id        String      @id @default(uuid())
+  index     String
+  domain    String
+  summary   String      @db.Text
+  order     Int         @default(0)
+  items     SkillItem[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@map("skill_group")
+}
+
+model SkillItem {
+  id        String     @id @default(uuid())
+  name      String
+  note      String
+  iconKey   String?
+  order     Int        @default(0)
+  groupId   String
+  group     SkillGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([groupId])
+  @@map("skill_item")
+}
+
+model Certificate {
+  id          String               @id @default(uuid())
+  name        String
+  category    CERTIFICATE_CATEGORY
+  image       String               @db.Text
+  href        String?              @db.Text
+  detail      String
+  issuerScope String
+  order       Int                  @default(0)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@map("certificate")
+}
+
+model SocialLink {
+  id        String   @id @default(uuid())
+  label     String
+  handle    String
+  href      String   @db.Text
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("social_link")
+}

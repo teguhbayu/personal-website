@@ -1,44 +1,17 @@
 import type { Metadata } from "next";
+import { ChannelId, OWNER } from "@/data/portfolio";
 import {
-  CERTIFICATES,
-  ChannelId,
-  OWNER,
-  PROJECTS,
-  SKILL_GROUPS,
-  SOCIALS,
-} from "@/data/portfolio";
+  getCertificates,
+  getOwner,
+  getProjects,
+  getSkillGroups,
+  getSocials,
+} from "@/lib/data";
+import { CHANNEL_ROUTES, pathnameToChannel } from "@/lib/routes";
+
+export { CHANNEL_ROUTES, pathnameToChannel };
 
 export const SITE_URL = "https://teguhbayu.xyz";
-
-export const CHANNEL_ROUTES: Record<ChannelId, string> = {
-  home: "/",
-  practice: "/practice",
-  projects: "/projects",
-  stack: "/stack",
-  awards: "/awards",
-  contact: "/contact",
-};
-
-export function pathnameToChannel(
-  pathname: string | null,
-): Exclude<ChannelId, "home"> | null {
-  if (!pathname) return null;
-  const clean = pathname.replace(/\/+$/, "") || "/";
-  switch (clean) {
-    case "/practice":
-      return "practice";
-    case "/projects":
-      return "projects";
-    case "/stack":
-      return "stack";
-    case "/awards":
-      return "awards";
-    case "/contact":
-      return "contact";
-    default:
-      return null;
-  }
-}
 
 export function buildPageMetadata(
   channel: ChannelId,
@@ -59,24 +32,26 @@ export function buildPageMetadata(
       title,
       description,
       siteName: OWNER.fullName,
-      images: [
-        {
-          url: `${SITE_URL}${OWNER.portrait}`,
-          alt: `${OWNER.fullName} portrait`,
-        },
-      ],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [`${SITE_URL}${OWNER.portrait}`],
     },
   };
 }
 
-export function buildJsonLd() {
-  const skills = SKILL_GROUPS.flatMap((g) => g.items.map((item) => item.name));
+export async function buildJsonLd() {
+  const [owner, projects, skillGroups, certificates, socials] =
+    await Promise.all([
+      getOwner(),
+      getProjects(),
+      getSkillGroups(),
+      getCertificates(),
+      getSocials(),
+    ]);
+
+  const skills = skillGroups.flatMap((g) => g.items.map((item) => item.name));
 
   return {
     "@context": "https://schema.org",
@@ -84,40 +59,40 @@ export function buildJsonLd() {
       {
         "@type": "Person",
         "@id": `${SITE_URL}/#person`,
-        name: OWNER.fullName,
-        alternateName: OWNER.shortName,
+        name: owner.fullName,
+        alternateName: owner.shortName,
         url: SITE_URL,
-        image: `${SITE_URL}${OWNER.portrait}`,
-        jobTitle: OWNER.role,
-        email: `mailto:${OWNER.email}`,
-        description: OWNER.biography.join(" "),
+        image: `${SITE_URL}${owner.portrait}`,
+        jobTitle: owner.role,
+        email: `mailto:${owner.email}`,
+        description: owner.biography.join(" "),
         affiliation: {
           "@type": "EducationalOrganization",
-          name: OWNER.school,
+          name: owner.school,
         },
         homeLocation: {
           "@type": "Place",
-          name: OWNER.location,
+          name: owner.location,
         },
         knowsAbout: skills,
-        award: CERTIFICATES.map(
+        award: certificates.map(
           (c) => `${c.name} (${c.detail}, ${c.issuerScope})`,
         ),
-        sameAs: SOCIALS.map((s) => s.href),
+        sameAs: socials.map((s) => s.href),
       },
       {
         "@type": "WebSite",
         "@id": `${SITE_URL}/#website`,
         url: SITE_URL,
-        name: OWNER.fullName,
-        description: `${OWNER.fullName}, ${OWNER.role} at ${OWNER.school}.`,
+        name: owner.fullName,
+        description: `${owner.fullName}, ${owner.role} at ${owner.school}.`,
         author: { "@id": `${SITE_URL}/#person` },
       },
       {
         "@type": "ItemList",
         "@id": `${SITE_URL}/projects#list`,
-        name: `${OWNER.fullName} Shipped Projects`,
-        itemListElement: PROJECTS.map((p, idx) => ({
+        name: `${owner.fullName} Shipped Projects`,
+        itemListElement: projects.map((p, idx) => ({
           "@type": "ListItem",
           position: idx + 1,
           item: {
