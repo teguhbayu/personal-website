@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getOwner, getPaginatedBlogPosts } from "@/lib/data";
+import { buildOgImageMeta } from "@/lib/og-image";
 import { SITE_URL } from "@/lib/seo";
 import BlogListClient from "./components/BlogListClient";
 
@@ -10,6 +11,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const title = "Blog";
   const description = `Articles and engineering notes by ${owner.fullName} on web development, AWS cloud architecture, and software systems.`;
   const url = `${SITE_URL}/blog`;
+  const ogImageUrl = `${SITE_URL}/og/blog.jpg`;
 
   return {
     title,
@@ -21,11 +23,13 @@ export async function generateMetadata(): Promise<Metadata> {
       title,
       description,
       siteName: owner.fullName,
+      images: [buildOgImageMeta(ogImageUrl, `Blog - ${owner.fullName}`)],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
+      images: [ogImageUrl],
     },
   };
 }

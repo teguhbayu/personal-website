@@ -26,6 +26,8 @@ function revalidateAll() {
     "/awards",
     "/contact",
     "/blog",
+    "/og/site.jpg",
+    "/og/blog.jpg",
     "/dashboard",
     "/dashboard/config",
     "/dashboard/projects",
@@ -615,8 +617,10 @@ export async function saveBlogPost(input: {
     revalidateAll();
     revalidatePath(`/dashboard/posts/${savedId}`);
     revalidatePath(`/blog/${slug}`);
+    revalidatePath(`/og/blog/${slug}/card.jpg`);
     if (previousSlug && previousSlug !== slug) {
       revalidatePath(`/blog/${previousSlug}`);
+      revalidatePath(`/og/blog/${previousSlug}/card.jpg`);
     }
     return { ok: true, data: { id: savedId, slug } };
   } catch (err) {
@@ -637,6 +641,7 @@ export async function deleteBlogPost(id: string): Promise<ActionResult> {
     revalidateAll();
     revalidatePath(`/dashboard/posts/${id}`);
     revalidatePath(`/blog/${deleted.slug}`);
+    revalidatePath(`/og/blog/${deleted.slug}/card.jpg`);
     return { ok: true };
   } catch (err) {
     return {

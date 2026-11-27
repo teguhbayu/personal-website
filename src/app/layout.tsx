@@ -6,6 +6,7 @@ import CloudDeckApp from "./components/CloudDeckApp";
 import TopProgressBar from "./components/TopProgressBar";
 import AppToaster from "./components/AppToaster";
 import { getOwner } from "@/lib/data";
+import { buildOgImageMeta } from "@/lib/og-image";
 import { buildJsonLd, SITE_URL } from "@/lib/seo";
 
 const syne = Syne({
@@ -31,6 +32,7 @@ const plexMono = IBM_Plex_Mono({
 
 export async function generateMetadata(): Promise<Metadata> {
   const owner = await getOwner();
+  const ogImageUrl = `${SITE_URL}/og/site.jpg`;
   return {
     metadataBase: new URL(SITE_URL),
     title: {
@@ -44,11 +46,13 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: owner.fullName,
       title: owner.fullName,
       description: `${owner.fullName}, ${owner.role} at ${owner.school}.`,
+      images: [buildOgImageMeta(ogImageUrl, `${owner.fullName} Portfolio`)],
     },
     twitter: {
       card: "summary_large_image",
       title: owner.fullName,
       description: `${owner.fullName}, ${owner.role} at ${owner.school}.`,
+      images: [ogImageUrl],
     },
   };
 }

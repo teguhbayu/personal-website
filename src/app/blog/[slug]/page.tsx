@@ -3,6 +3,7 @@ import { draftMode } from "next/headers";
 import { notFound } from "next/navigation";
 import { getBlogPostBySlug, getPublicBlogSlugs } from "@/lib/data";
 import { getAdminSession } from "@/lib/admin-auth";
+import { buildOgImageMeta } from "@/lib/og-image";
 import { SITE_URL } from "@/lib/seo";
 import BlogArticleView from "./components/BlogArticleView";
 
@@ -41,6 +42,8 @@ export async function generateMetadata({
 
   const url = `${SITE_URL}/blog/${post.slug}`;
   const isIndexable = post.visibility === "PUBLISHED";
+  const version = encodeURIComponent(post.editedAt ?? post.publishedAt);
+  const ogImageUrl = `${SITE_URL}/og/blog/${post.slug}/card.jpg?v=${version}`;
 
   return {
     title: post.title,
@@ -60,11 +63,13 @@ export async function generateMetadata({
       publishedTime: post.publishedAt,
       modifiedTime: post.editedAt ?? post.publishedAt,
       authors: [post.authorName],
+      images: [buildOgImageMeta(ogImageUrl, post.title)],
     },
     twitter: {
       card: "summary_large_image",
       title: post.title,
       description: post.excerpt,
+      images: [ogImageUrl],
     },
   };
 }

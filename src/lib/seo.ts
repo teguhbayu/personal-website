@@ -8,6 +8,7 @@ import {
   getSocials,
 } from "@/lib/data";
 import { CHANNEL_ROUTES, pathnameToChannel } from "@/lib/routes";
+import { buildOgImageMeta } from "@/lib/og-image";
 
 export { CHANNEL_ROUTES, pathnameToChannel };
 
@@ -20,6 +21,7 @@ export function buildPageMetadata(
 ): Metadata {
   const path = CHANNEL_ROUTES[channel];
   const url = path === "/" ? SITE_URL : `${SITE_URL}${path}`;
+  const ogImageUrl = `${SITE_URL}/og/site.jpg`;
   return {
     title,
     description,
@@ -32,11 +34,13 @@ export function buildPageMetadata(
       title,
       description,
       siteName: OWNER.fullName,
+      images: [buildOgImageMeta(ogImageUrl, `${OWNER.fullName} Portfolio`)],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
+      images: [ogImageUrl],
     },
   };
 }

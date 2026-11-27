@@ -25,6 +25,7 @@
     "rehype-sanitize": "^6.0.0",
     "remark-directive": "^4.0.0",
     "remark-gfm": "^4.0.1",
+    "sharp": "^0.35.5",
     "sileo": "^0.1.6",
     "tailwind-merge": "^2.3.0",
     "three": "^0.187.0",
