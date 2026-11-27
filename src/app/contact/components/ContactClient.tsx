@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { sileo } from "sileo";
 import type { SocialLink } from "@/data/portfolio";
 import SplitRollText from "@/app/components/SplitRollText";
 
@@ -18,9 +19,17 @@ export default function ContactClient({ email, socials }: ContactClientProps) {
     try {
       await navigator.clipboard.writeText(email);
       setCopyState("copied");
+      sileo.success({
+        title: "Email copied",
+        description: email,
+      });
       window.setTimeout(() => setCopyState("idle"), 2600);
     } catch {
       setCopyState("error");
+      sileo.error({
+        title: "Copy unavailable",
+        description: "Click the email address directly instead.",
+      });
       window.setTimeout(() => setCopyState("idle"), 4000);
     }
   };

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FiEdit2, FiPlus, FiSave, FiTrash2 } from "react-icons/fi";
+import { sileo } from "sileo";
 import {
   deleteSiteConfigEntry,
   saveSiteConfigs,
@@ -74,9 +75,14 @@ export default function ConfigClient({
       ]);
       if (!res.ok) {
         setErrorMsg(res.error);
+        sileo.error({ title: "Save failed", description: res.error });
         return;
       }
       setStatusMsg("Owner profile and site copy saved to SiteConfig.");
+      sileo.success({
+        title: "Profile saved",
+        description: "Owner identity and site copy updated.",
+      });
       router.refresh();
     });
   };
@@ -100,6 +106,8 @@ export default function ConfigClient({
   const handleSaveCustom = (e: React.FormEvent) => {
     e.preventDefault();
     setKvError(null);
+    const savedKey = kvKey.trim();
+    const isEdit = Boolean(editingEntry?.id);
     startTransition(async () => {
       const res = await upsertSiteConfigEntry({
         id: editingEntry?.id,
@@ -108,19 +116,28 @@ export default function ConfigClient({
       });
       if (!res.ok) {
         setKvError(res.error);
+        sileo.error({ title: "Save failed", description: res.error });
         return;
       }
       setModalOpen(false);
+      sileo.success({
+        title: isEdit ? "Config key updated" : "Config key added",
+        description: savedKey,
+      });
       router.refresh();
     });
   };
 
   const handleConfirmDelete = () => {
     if (!deleteTarget) return;
+    const deletedKey = deleteTarget.key;
     startTransition(async () => {
       const res = await deleteSiteConfigEntry(deleteTarget.id);
       if (!res.ok) {
         setErrorMsg(res.error);
+        sileo.error({ title: "Delete failed", description: res.error });
+      } else {
+        sileo.success({ title: "Config key deleted", description: deletedKey });
       }
       setDeleteTarget(null);
       router.refresh();

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { FiCrop, FiTrash2, FiUploadCloud } from "react-icons/fi";
+import { sileo } from "sileo";
 import type { UploadFolder } from "@/lib/cloudinary";
 import { uploadFileToCloudinary } from "@/lib/cloudinary-upload";
 import ImageCropModal, { AspectPresetId } from "./ImageCropModal";
@@ -42,12 +43,17 @@ export default function ImageUploadField({
     setStatus(null);
 
     if (!file.type.startsWith("image/")) {
-      setError("Please select a valid image file (PNG, JPG, WebP, or AVIF).");
+      const msg =
+        "Please select a valid image file (PNG, JPG, WebP, or AVIF).";
+      setError(msg);
+      sileo.error({ title: "Unsupported file", description: msg });
       return;
     }
 
     if (file.size > MAX_FILE_BYTES) {
-      setError("Image file must be 10 MB or smaller.");
+      const msg = "Image file must be 10 MB or smaller.";
+      setError(msg);
+      sileo.error({ title: "File too large", description: msg });
       return;
     }
 
@@ -63,11 +69,19 @@ export default function ImageUploadField({
       const result = await uploadFileToCloudinary(fileToUpload, folder);
       onChange(result.secureUrl);
       setStatus(`Uploaded to ${result.folder}`);
+      sileo.success({
+        title: "Image uploaded",
+        description: result.folder,
+      });
       setPendingFile(null);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Upload failed. Please try again.",
-      );
+      const msg =
+        err instanceof Error ? err.message : "Upload failed. Please try again.";
+      setError(msg);
+      sileo.error({
+        title: "Upload failed",
+        description: msg,
+      });
     } finally {
       setUploading(false);
     }

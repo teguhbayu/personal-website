@@ -4,6 +4,7 @@ import { Syne, Plus_Jakarta_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import CloudDeckApp from "./components/CloudDeckApp";
 import TopProgressBar from "./components/TopProgressBar";
+import AppToaster from "./components/AppToaster";
 import { getOwner } from "@/lib/data";
 import { buildJsonLd, SITE_URL } from "@/lib/seo";
 
@@ -80,6 +81,7 @@ export default async function RootLayout({
         <Suspense fallback={null}>
           <TopProgressBar />
         </Suspense>
+        <AppToaster />
         <CloudDeckApp>{children}</CloudDeckApp>
       </body>
     </html>

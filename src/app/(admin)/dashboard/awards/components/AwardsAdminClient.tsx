@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FiEdit2, FiExternalLink, FiPlus, FiTrash2 } from "react-icons/fi";
+import { sileo } from "sileo";
 import { deleteCertificate, saveCertificate } from "@/lib/admin-actions";
 import ImageUploadField from "../../components/ImageUploadField";
 import FormModal from "../../components/FormModal";
@@ -62,23 +63,39 @@ export default function AwardsAdminClient({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+    const isEdit = Boolean(form.id);
+    const certName = form.name.trim();
     startTransition(async () => {
       const res = await saveCertificate(form);
       if (!res.ok) {
         setFormError(res.error);
+        sileo.error({ title: "Save failed", description: res.error });
         return;
       }
       setModalOpen(false);
+      sileo.success({
+        title: isEdit ? "Certificate updated" : "Certificate added",
+        description: certName,
+      });
       router.refresh();
     });
   };
 
   const handleConfirmDelete = () => {
     if (!deleteTarget) return;
+    const deletedName = deleteTarget.name;
     setPageError(null);
     startTransition(async () => {
       const res = await deleteCertificate(deleteTarget.id);
-      if (!res.ok) setPageError(res.error);
+      if (!res.ok) {
+        setPageError(res.error);
+        sileo.error({ title: "Delete failed", description: res.error });
+      } else {
+        sileo.success({
+          title: "Certificate deleted",
+          description: deletedName,
+        });
+      }
       setDeleteTarget(null);
       router.refresh();
     });

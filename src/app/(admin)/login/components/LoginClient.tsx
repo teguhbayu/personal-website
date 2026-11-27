@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FaGoogle } from "react-icons/fa6";
+import { sileo } from "sileo";
 import { authClient } from "@/lib/auth-client";
 
 interface LoginClientProps {
@@ -32,11 +33,22 @@ export default function LoginClient({
         errorCallbackURL: "/login",
       });
       if (result?.error) {
-        setError(result.error.message || "Unable to start Google sign-in.");
+        const message =
+          result.error.message || "Unable to start Google sign-in.";
+        setError(message);
+        sileo.error({
+          title: "Sign-in failed",
+          description: message,
+        });
         setLoading(false);
       }
     } catch {
-      setError("Unable to reach the authentication server. Try again.");
+      const message = "Unable to reach the authentication server. Try again.";
+      setError(message);
+      sileo.error({
+        title: "Connection error",
+        description: message,
+      });
       setLoading(false);
     }
   };
@@ -46,10 +58,19 @@ export default function LoginClient({
     setSigningOut(true);
     try {
       await authClient.signOut();
+      sileo.info({
+        title: "Signed out",
+        description: "Choose an authorized account to continue.",
+      });
       router.replace(`/login?callbackURL=${encodeURIComponent(callbackURL)}`);
       router.refresh();
     } catch {
-      setError("Could not sign out. Clear your cookies and try again.");
+      const message = "Could not sign out. Clear your cookies and try again.";
+      setError(message);
+      sileo.error({
+        title: "Sign-out failed",
+        description: message,
+      });
     } finally {
       setSigningOut(false);
     }

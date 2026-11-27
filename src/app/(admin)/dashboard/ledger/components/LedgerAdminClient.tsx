@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FiEdit2, FiPlus, FiTrash2 } from "react-icons/fi";
+import { sileo } from "sileo";
 import { deleteLedgerEntry, saveLedgerEntry } from "@/lib/admin-actions";
 import FormModal from "../../components/FormModal";
 import ConfirmDialog from "../../components/ConfirmDialog";
@@ -55,23 +56,36 @@ export default function LedgerAdminClient({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+    const isEdit = Boolean(form.id);
+    const label = form.label.trim();
     startTransition(async () => {
       const res = await saveLedgerEntry(form);
       if (!res.ok) {
         setFormError(res.error);
+        sileo.error({ title: "Save failed", description: res.error });
         return;
       }
       setModalOpen(false);
+      sileo.success({
+        title: isEdit ? "Record updated" : "Record added",
+        description: label,
+      });
       router.refresh();
     });
   };
 
   const handleConfirmDelete = () => {
     if (!deleteTarget) return;
+    const deletedLabel = deleteTarget.label;
     setPageError(null);
     startTransition(async () => {
       const res = await deleteLedgerEntry(deleteTarget.id);
-      if (!res.ok) setPageError(res.error);
+      if (!res.ok) {
+        setPageError(res.error);
+        sileo.error({ title: "Delete failed", description: res.error });
+      } else {
+        sileo.success({ title: "Record deleted", description: deletedLabel });
+      }
       setDeleteTarget(null);
       router.refresh();
     });

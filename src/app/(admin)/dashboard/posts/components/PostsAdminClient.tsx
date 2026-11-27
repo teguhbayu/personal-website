@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FiEdit2, FiPlus, FiTrash2 } from "react-icons/fi";
-import { deleteBlogPost, saveBlogPost } from "@/lib/admin-actions";
-import ImageUploadField from "../../components/ImageUploadField";
-import FormModal from "../../components/FormModal";
+import { sileo } from "sileo";
+import { deleteBlogPost } from "@/lib/admin-actions";
 import ConfirmDialog from "../../components/ConfirmDialog";
-import BlogMdxEditor from "./BlogMdxEditor";
 
 type PostVisibility = "DRAFT" | "PUBLISHED" | "UNLISTED" | "PRIVATE";
 
@@ -27,70 +26,24 @@ interface PostsAdminClientProps {
   posts: AdminPost[];
 }
 
-const EMPTY_FORM = {
-  id: undefined as string | undefined,
-  slug: "",
-  title: "",
-  headerImage: "",
-  body: "",
-  visibility: "DRAFT" as PostVisibility,
-};
-
 export default function PostsAdminClient({ posts }: PostsAdminClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editorNonce, setEditorNonce] = useState(0);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [formError, setFormError] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminPost | null>(null);
 
-  const openCreate = () => {
-    setForm(EMPTY_FORM);
-    setFormError(null);
-    setEditorNonce((n) => n + 1);
-    setModalOpen(true);
-  };
-
-  const openEdit = (post: AdminPost) => {
-    setForm({
-      id: post.id,
-      slug: post.slug,
-      title: post.title,
-      headerImage: post.headerImage,
-      body: post.body,
-      visibility: post.visibility,
-    });
-    setFormError(null);
-    setEditorNonce((n) => n + 1);
-    setModalOpen(true);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError(null);
-    if (!form.body.trim()) {
-      setFormError("Post body content is required.");
-      return;
-    }
-    startTransition(async () => {
-      const res = await saveBlogPost(form);
-      if (!res.ok) {
-        setFormError(res.error);
-        return;
-      }
-      setModalOpen(false);
-      router.refresh();
-    });
-  };
-
   const handleConfirmDelete = () => {
     if (!deleteTarget) return;
+    const deletedTitle = deleteTarget.title;
     setPageError(null);
     startTransition(async () => {
       const res = await deleteBlogPost(deleteTarget.id);
-      if (!res.ok) setPageError(res.error);
+      if (!res.ok) {
+        setPageError(res.error);
+        sileo.error({ title: "Delete failed", description: res.error });
+      } else {
+        sileo.success({ title: "Post deleted", description: deletedTitle });
+      }
       setDeleteTarget(null);
       router.refresh();
     });
@@ -104,18 +57,17 @@ export default function PostsAdminClient({ posts }: PostsAdminClientProps) {
             Blog Posts Management
           </h2>
           <p className="text-sm text-ink-muted">
-            Create, edit, and publish articles with header imagery uploaded to
-            Cloudinary under portfolio-website/blog/.
+            Create, edit, and publish articles in a dedicated full-page MDX
+            editor with Cloudinary image uploads.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openCreate}
+        <Link
+          href="/dashboard/posts/new"
           className="min-h-[46px] px-5 inline-flex items-center justify-center gap-2 bg-accent-strong text-white font-mono text-xs font-medium uppercase rounded-sm hover:opacity-90 transition-opacity shrink-0"
         >
           <FiPlus aria-hidden={true} className="text-sm" />
           <span>New Post</span>
-        </button>
+        </Link>
       </section>
 
       {pageError && (
@@ -150,14 +102,13 @@ export default function PostsAdminClient({ posts }: PostsAdminClientProps) {
                   {post.visibility}
                 </span>
                 <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => openEdit(post)}
+                  <Link
+                    href={`/dashboard/posts/${post.id}`}
                     aria-label={`Edit ${post.title}`}
                     className="min-h-[40px] min-w-[40px] inline-flex items-center justify-center border border-rule bg-sheet-alt text-ink rounded-sm hover:border-accent-strong transition-colors"
                   >
                     <FiEdit2 aria-hidden={true} className="text-sm" />
-                  </button>
+                  </Link>
                   <button
                     type="button"
                     onClick={() => setDeleteTarget(post)}
@@ -169,7 +120,10 @@ export default function PostsAdminClient({ posts }: PostsAdminClientProps) {
                 </div>
               </div>
 
-              <div className="relative aspect-[16/9] w-full bg-sheet border-b border-rule overflow-hidden">
+              <Link
+                href={`/dashboard/posts/${post.id}`}
+                className="relative aspect-[16/9] w-full bg-sheet border-b border-rule overflow-hidden block"
+              >
                 {post.headerImage ? (
                   <img
                     src={post.headerImage}
@@ -181,18 +135,26 @@ export default function PostsAdminClient({ posts }: PostsAdminClientProps) {
                     No header image
                   </div>
                 )}
-              </div>
+              </Link>
 
               <div className="p-5 flex-1 flex flex-col divide-y divide-rule">
                 <div className="pb-3">
                   <p className="font-mono text-[11px] uppercase text-ink-muted">
                     Title &amp; Slug
                   </p>
-                  <p className="font-display font-bold text-lg text-ink mt-0.5">
+                  <Link
+                    href={`/dashboard/posts/${post.id}`}
+                    className="font-display font-bold text-lg text-ink hover:text-accent transition-colors mt-0.5 block"
+                  >
                     {post.title}
-                  </p>
+                  </Link>
                   <a
-                    href={`/blog/${post.slug}`}
+                    href={
+                      post.visibility === "DRAFT" ||
+                      post.visibility === "PRIVATE"
+                        ? `/api/admin/draft?slug=${encodeURIComponent(post.slug)}`
+                        : `/blog/${post.slug}`
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-block font-mono text-xs text-accent hover:underline mt-0.5"
@@ -225,127 +187,6 @@ export default function PostsAdminClient({ posts }: PostsAdminClientProps) {
           ))}
         </div>
       )}
-
-      <FormModal
-        open={modalOpen}
-        title={form.id ? "Edit Blog Post" : "New Blog Post"}
-        subtitle="Header and inline MDX images upload to Cloudinary under portfolio-website/blog/"
-        maxWidthClass="max-w-4xl"
-        onClose={() => setModalOpen(false)}
-      >
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {formError && (
-            <p role="alert" className="font-mono text-xs text-accent">
-              {formError}
-            </p>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="post-title"
-                className="font-mono text-xs uppercase text-ink"
-              >
-                Title
-              </label>
-              <input
-                id="post-title"
-                type="text"
-                required
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                className="min-h-[44px] px-3 bg-sheet border border-rule text-sm text-ink rounded-sm"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="post-slug"
-                className="font-mono text-xs uppercase text-ink"
-              >
-                Slug
-              </label>
-              <input
-                id="post-slug"
-                type="text"
-                required
-                value={form.slug}
-                onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                placeholder="building-aws-cloud-architecture"
-                className="min-h-[44px] px-3 bg-sheet border border-rule text-sm text-ink rounded-sm font-mono"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="post-visibility"
-              className="font-mono text-xs uppercase text-ink"
-            >
-              Visibility
-            </label>
-            <select
-              id="post-visibility"
-              value={form.visibility}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  visibility: e.target.value as PostVisibility,
-                })
-              }
-              className="min-h-[44px] px-3 bg-sheet border border-rule text-sm text-ink rounded-sm"
-            >
-              <option value="DRAFT">Draft</option>
-              <option value="PUBLISHED">Published</option>
-              <option value="UNLISTED">Unlisted</option>
-              <option value="PRIVATE">Private</option>
-            </select>
-          </div>
-
-          <ImageUploadField
-            id="post-header-image"
-            label="Header Image"
-            folder="blog"
-            value={form.headerImage}
-            onChange={(next) => setForm({ ...form, headerImage: next })}
-          />
-
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-mono text-xs uppercase text-ink">
-                Body Content (MDX Editor)
-              </span>
-              <span className="font-mono text-[11px] text-ink-muted">
-                Inline images open custom crop before uploading
-              </span>
-            </div>
-            <BlogMdxEditor
-              key={`${form.id ?? "new"}-${editorNonce}`}
-              markdown={form.body}
-              onChange={(next) =>
-                setForm((prev) => ({ ...prev, body: next }))
-              }
-            />
-          </div>
-
-          <div className="flex justify-end gap-2.5 pt-2">
-            <button
-              type="button"
-              onClick={() => setModalOpen(false)}
-              className="min-h-[44px] px-4 border border-rule bg-sheet-alt text-ink text-xs font-mono uppercase rounded-sm"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isPending}
-              className="min-h-[44px] px-5 bg-accent-strong text-white text-xs font-mono uppercase rounded-sm disabled:opacity-60"
-            >
-              {isPending ? "Saving..." : "Save Post"}
-            </button>
-          </div>
-        </form>
-      </FormModal>
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}

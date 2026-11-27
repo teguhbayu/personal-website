@@ -19,6 +19,7 @@ import {
   FiShield,
   FiX,
 } from "react-icons/fi";
+import { sileo } from "sileo";
 import { authClient } from "@/lib/auth-client";
 import Image from "next/image";
 
@@ -132,8 +133,17 @@ export default function DashboardShell({
     setSigningOut(true);
     try {
       await authClient.signOut();
+      sileo.info({
+        title: "Signed out",
+        description: "Your admin session has ended.",
+      });
       router.push("/login");
       router.refresh();
+    } catch {
+      sileo.error({
+        title: "Sign-out failed",
+        description: "Could not end your session. Please try again.",
+      });
     } finally {
       setSigningOut(false);
     }

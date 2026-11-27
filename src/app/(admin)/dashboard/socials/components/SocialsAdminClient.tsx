@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FiEdit2, FiExternalLink, FiPlus, FiTrash2 } from "react-icons/fi";
+import { sileo } from "sileo";
 import { deleteSocialLink, saveSocialLink } from "@/lib/admin-actions";
 import FormModal from "../../components/FormModal";
 import ConfirmDialog from "../../components/ConfirmDialog";
@@ -55,23 +56,39 @@ export default function SocialsAdminClient({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+    const isEdit = Boolean(form.id);
+    const label = form.label.trim();
     startTransition(async () => {
       const res = await saveSocialLink(form);
       if (!res.ok) {
         setFormError(res.error);
+        sileo.error({ title: "Save failed", description: res.error });
         return;
       }
       setModalOpen(false);
+      sileo.success({
+        title: isEdit ? "Social profile updated" : "Social profile added",
+        description: label,
+      });
       router.refresh();
     });
   };
 
   const handleConfirmDelete = () => {
     if (!deleteTarget) return;
+    const deletedLabel = deleteTarget.label;
     setPageError(null);
     startTransition(async () => {
       const res = await deleteSocialLink(deleteTarget.id);
-      if (!res.ok) setPageError(res.error);
+      if (!res.ok) {
+        setPageError(res.error);
+        sileo.error({ title: "Delete failed", description: res.error });
+      } else {
+        sileo.success({
+          title: "Social profile deleted",
+          description: deletedLabel,
+        });
+      }
       setDeleteTarget(null);
       router.refresh();
     });

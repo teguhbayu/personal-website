@@ -1,11 +1,18 @@
 import type { Metadata } from "next";
+import { draftMode } from "next/headers";
 import { notFound } from "next/navigation";
-import { getBlogPostBySlug } from "@/lib/data";
+import { getBlogPostBySlug, getPublicBlogSlugs } from "@/lib/data";
 import { getAdminSession } from "@/lib/admin-auth";
 import { SITE_URL } from "@/lib/seo";
 import BlogArticleView from "./components/BlogArticleView";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
+export const dynamicParams = true;
+
+export async function generateStaticParams() {
+  const slugs = await getPublicBlogSlugs();
+  return slugs.map((slug) => ({ slug }));
+}
 
 interface BlogPostPageProps {
   params: Promise<{ slug: string }>;
@@ -15,6 +22,7 @@ export async function generateMetadata({
   params,
 }: BlogPostPageProps): Promise<Metadata> {
   const { slug } = await params;
+  const { isEnabled: isDraftMode } = await draftMode();
   const post = await getBlogPostBySlug(slug);
 
   if (!post) {
@@ -22,6 +30,9 @@ export async function generateMetadata({
   }
 
   if (post.visibility === "DRAFT" || post.visibility === "PRIVATE") {
+    if (!isDraftMode) {
+      return { title: "Article Not Found" };
+    }
     const auth = await getAdminSession();
     if (auth.status !== "authenticated") {
       return { title: "Article Not Found" };
@@ -60,6 +71,7 @@ export async function generateMetadata({
 
 export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { slug } = await params;
+  const { isEnabled: isDraftMode } = await draftMode();
   const post = await getBlogPostBySlug(slug);
 
   if (!post) {
@@ -68,6 +80,9 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
   let isOwnerPreview = false;
   if (post.visibility === "DRAFT" || post.visibility === "PRIVATE") {
+    if (!isDraftMode) {
+      notFound();
+    }
     const auth = await getAdminSession();
     if (auth.status !== "authenticated") {
       notFound();

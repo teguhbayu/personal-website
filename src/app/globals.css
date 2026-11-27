@@ -182,3 +182,7 @@ input:focus-visible,
   position: relative;
   z-index: 80 !important;
 }
+
+[data-sileo-viewport] {
+  z-index: 1100 !important;
+}

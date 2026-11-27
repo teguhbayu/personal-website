@@ -47,6 +47,8 @@ function stripMarkdown(md: string): string {
     .replace(/`([^`]+)`/g, "$1")
     .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/^:::[a-zA-Z0-9_-]*\s*$/gm, " ")
+    .replace(/<[^>]+>/g, " ")
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/[*_~>-]+/g, " ")
     .replace(/\s+/g, " ")
@@ -308,6 +310,18 @@ export async function getPaginatedBlogPosts(options?: {
       totalPages: 1,
       query,
     };
+  }
+}
+
+export async function getPublicBlogSlugs(): Promise<string[]> {
+  try {
+    const rows = await prisma.blogPost.findMany({
+      where: { visibility: { in: ["PUBLISHED", "UNLISTED"] } },
+      select: { slug: true },
+    });
+    return rows.map((row) => row.slug);
+  } catch {
+    return [];
   }
 }
 

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FiEdit2, FiPlus, FiTrash2 } from "react-icons/fi";
+import { sileo } from "sileo";
 import {
   deleteSkillGroup,
   deleteSkillItem,
@@ -117,13 +118,20 @@ export default function StackAdminClient({ groups }: StackAdminClientProps) {
   const handleSaveGroup = (e: React.FormEvent) => {
     e.preventDefault();
     setGroupError(null);
+    const isEdit = Boolean(groupForm.id);
+    const domain = groupForm.domain.trim();
     startTransition(async () => {
       const res = await saveSkillGroup(groupForm);
       if (!res.ok) {
         setGroupError(res.error);
+        sileo.error({ title: "Save failed", description: res.error });
         return;
       }
       setGroupModalOpen(false);
+      sileo.success({
+        title: isEdit ? "Stack layer updated" : "Stack layer added",
+        description: domain,
+      });
       router.refresh();
     });
   };
@@ -131,6 +139,8 @@ export default function StackAdminClient({ groups }: StackAdminClientProps) {
   const handleSaveItem = (e: React.FormEvent) => {
     e.preventDefault();
     setItemError(null);
+    const isEdit = Boolean(itemForm.id);
+    const name = itemForm.name.trim();
     startTransition(async () => {
       const res = await saveSkillItem({
         id: itemForm.id,
@@ -142,22 +152,40 @@ export default function StackAdminClient({ groups }: StackAdminClientProps) {
       });
       if (!res.ok) {
         setItemError(res.error);
+        sileo.error({ title: "Save failed", description: res.error });
         return;
       }
       setItemModalOpen(false);
+      sileo.success({
+        title: isEdit ? "Technology updated" : "Technology added",
+        description: name,
+      });
       router.refresh();
     });
   };
 
   const handleConfirmDelete = () => {
     if (!deleteTarget) return;
+    const targetKind = deleteTarget.kind;
+    const targetLabel = deleteTarget.label;
     setPageError(null);
     startTransition(async () => {
       const res =
-        deleteTarget.kind === "group"
+        targetKind === "group"
           ? await deleteSkillGroup(deleteTarget.id)
           : await deleteSkillItem(deleteTarget.id);
-      if (!res.ok) setPageError(res.error);
+      if (!res.ok) {
+        setPageError(res.error);
+        sileo.error({ title: "Delete failed", description: res.error });
+      } else {
+        sileo.success({
+          title:
+            targetKind === "group"
+              ? "Stack layer deleted"
+              : "Technology deleted",
+          description: targetLabel,
+        });
+      }
       setDeleteTarget(null);
       router.refresh();
     });

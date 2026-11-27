@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FiArrowRight, FiDatabase } from "react-icons/fi";
+import { sileo } from "sileo";
 import { seedPortfolioDefaults } from "@/lib/admin-actions";
 
 interface MetricCard {
@@ -34,11 +35,19 @@ export default function OverviewClient({
       const res = await seedPortfolioDefaults();
       if (!res.ok) {
         setError(res.error);
+        sileo.error({
+          title: "Seed failed",
+          description: res.error,
+        });
         return;
       }
-      setMessage(
-        "Default portfolio records have been seeded into MySQL without overwriting existing rows.",
-      );
+      const okMsg =
+        "Default portfolio records have been seeded into MySQL without overwriting existing rows.";
+      setMessage(okMsg);
+      sileo.success({
+        title: "Defaults seeded",
+        description: "Portfolio records synced without overwriting existing rows.",
+      });
       router.refresh();
     });
   };

@@ -554,7 +554,7 @@ export async function saveBlogPost(input: {
   headerImage: string;
   body: string;
   visibility: "DRAFT" | "PUBLISHED" | "UNLISTED" | "PRIVATE";
-}): Promise<ActionResult> {
+}): Promise<ActionResult<{ id: string; slug: string }>> {
   const session = await requireAdminSession("/dashboard/posts");
   const title = input.title.trim();
   const slug = slugify(input.slug || title);
@@ -572,12 +572,15 @@ export async function saveBlogPost(input: {
   const now = new Date();
 
   try {
+    let savedId: string;
+    let previousSlug: string | null = null;
     if (input.id) {
       const existing = await prisma.blogPost.findUnique({
         where: { id: input.id },
-        select: { published_at: true },
+        select: { published_at: true, slug: true },
       });
-      await prisma.blogPost.update({
+      previousSlug = existing?.slug ?? null;
+      const updated = await prisma.blogPost.update({
         where: { id: input.id },
         data: {
           slug,
@@ -591,9 +594,11 @@ export async function saveBlogPost(input: {
               ? existing?.published_at ?? now
               : existing?.published_at ?? null,
         },
+        select: { id: true },
       });
+      savedId = updated.id;
     } else {
-      await prisma.blogPost.create({
+      const created = await prisma.blogPost.create({
         data: {
           slug,
           title,
@@ -603,11 +608,17 @@ export async function saveBlogPost(input: {
           written_by_id: session.user.id,
           published_at: visibility === POST_STATUS.PUBLISHED ? now : null,
         },
+        select: { id: true },
       });
+      savedId = created.id;
     }
     revalidateAll();
+    revalidatePath(`/dashboard/posts/${savedId}`);
     revalidatePath(`/blog/${slug}`);
-    return { ok: true };
+    if (previousSlug && previousSlug !== slug) {
+      revalidatePath(`/blog/${previousSlug}`);
+    }
+    return { ok: true, data: { id: savedId, slug } };
   } catch (err) {
     return {
       ok: false,
@@ -619,8 +630,13 @@ export async function saveBlogPost(input: {
 export async function deleteBlogPost(id: string): Promise<ActionResult> {
   await requireAdminSession("/dashboard/posts");
   try {
-    await prisma.blogPost.delete({ where: { id } });
+    const deleted = await prisma.blogPost.delete({
+      where: { id },
+      select: { slug: true },
+    });
     revalidateAll();
+    revalidatePath(`/dashboard/posts/${id}`);
+    revalidatePath(`/blog/${deleted.slug}`);
     return { ok: true };
   } catch (err) {
     return {
